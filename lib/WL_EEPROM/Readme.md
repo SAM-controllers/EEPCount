@@ -1,4 +1,6 @@
 Readme.txt: Library explanation
+# Development note:
+This code originally started as a rewrite of the sparkfun external eeprom lib with a lower memory footprint which then spiraled out of control into a monstrous conglomeration of that rewrite plus a wear leveling scheme through address translation which included this counter code as part of the mix. The counting functionality with limited wear to eeprom is useful without the underlying (to be continued)
 
 ## Brief Operational Explanation ##
 This library splits the EEPROM chip's memory into multiple "blocks" which each have a header and a data portion. 
