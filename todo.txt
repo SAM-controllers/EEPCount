@@ -1,0 +1,16 @@
+
+Enable moving to the next block after x writes
+Dynamic block header size?
+Align block data byte 0 to page?
+Make sure write/put can deal with writes larger than the i2c tx buffer size
+Validate address data types for chip sizes over 0xFFFF bytes (65kB or 512 kbit)
+void erase(uint8_t toWrite = 0xff, bool noHeader = true, bool resetWriteCount = false); // Add a data only/counter aware erase
+/* == ToDo == *\
+-Verify that a counter struct is valid in page 0 on loading
+-Write to only the byte that changed in the counter unless a rollover happens
+store/retreive lib version
+Erase just the data portion
+
+Examples:
+Finish unit settings
+Automaticly find mem size and page size, then recommend a block size (largest possible, largest with leveling, etc)
