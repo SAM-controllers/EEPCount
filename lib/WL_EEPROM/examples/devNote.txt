@@ -1,0 +1,1 @@
+The Examples directory should be at the root of the repository for consistency across platformIO and arduino branches

@@ -136,6 +136,10 @@ These were taken from the switch case satement that tried to guess the address b
      default: break;  // Unknown memory size
      }
 
+## Edge cases
+These are things that may come up for very specialized use
+- Using a larger or smaller i2c tx/rx buffer than standard will need to be modified in PlatformDefines.h before compiling.
+
 
 ```/*
     From sparkfun lib:
@@ -162,3 +166,15 @@ These were taken from the switch case satement that tried to guess the address b
   Lesser General Public License for more details.
 
 */```
+
+ToDo:
+Bounds/validity checking of storing/loading counter structs (wlc)
+Do not start i2c from within begin() (update examples)
+Add keywords.txt for Arduino (see https://www.sparkfun.com/news/3245)
+Move i2c bus specification to begin()
+Set counter to <value> function
+Make increment counter use the return values
+
+Dev assumptions:
+Block header is 16 bytes
+abacus1 rolls over ever 256 counts

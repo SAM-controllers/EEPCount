@@ -18,7 +18,7 @@
 // Version defines
 #define EEPROM_LIB_VERSION_MAJOR 0
 #define EEPROM_LIB_VERSION_MINOR 4
-#define EEPROM_LIB_VERSION_PATCH 0
+#define EEPROM_LIB_VERSION_PATCH 4
 #define BRANCH_DESCRIPTION_STRING "Block Offset"
 
 
@@ -29,8 +29,8 @@
 // === Compile Flags === //
 // #define EEPROM_USE_CUSTOM_DELAY     // Define your own non-blocking or thread safe delay function. Useful for RTOS or queueing a read/write operation and running other code during the delay
 // #define EEPROM_DISABLE_BLOCK_SHIFT  // (NOT_UNTIL_BLOCK_SHIFT) Once block shifting is implemented, always use block 0. Still keeps track of write count, but does not copy/readdress page locations after reaching some number of writes
-// #define EEPROM_DELAY_BEFORE_WRITE_POLLING  // Wait writeTime_ms milliseconds before polling the chip to see if it's ready after a write
-// #define EEPROM_PRINT_READWRITE_INFO // (Debugging) Print what address is being requested, translated, and used for any read or write
+#define EEPROM_DELAY_BEFORE_WRITE_POLLING  // Wait writeTime_ms milliseconds before polling the chip to see if it's ready after a write
+#define EEPROM_PRINT_READWRITE_INFO // (Debugging) Print what address is being requested, translated, and used for any read or write
 #define PAD_TO_PAGE_SIZE    // Align the data block byte 0 with the first byte of a page
 
 // Defines and enums
@@ -47,6 +47,13 @@ enum class BlockStatus_t : uint8_t {
     // ConfigErrorBlock0Fallback = 0x44,       // ToDo: Something is wrong with the block config, so using block 0 forever
 };
 
+enum CounterReturn_t : uint8_t {
+    counterValid = 0,
+    counterInvalid = 1,
+    counterBytesBlank = 2,  // All the bytes were 0xff (255) which is likely uninitialized memory, even though technically it's a valid counter state (well past when the chip should have worn out)
+    counterReadWriteErr = 3,  // Problem with eeprom chip
+};
+
 struct struct_memorySettings
 {
     TwoWire *i2cPort;// ToDo: make const
@@ -58,7 +65,7 @@ struct struct_memorySettings
     uint8_t wpPin;  // ToDo: make const
 };
 
-
+// The raw counter bytes that get saved to eeprom
 struct WearLevelCounter_t{
     uint32_t abacus0; // Single increments
     uint8_t abacus1;  // Number of abacus0 rollovers
@@ -66,6 +73,13 @@ struct WearLevelCounter_t{
     uint8_t uint1;     // Number of int0 rollovers
     uint8_t uint2;     // Number of int1 rollovers
 } ;
+
+// This needs a better name, but includes the raw data plus associated info for ease of use
+struct WearLevelCounterObject_t{
+    uint32_t addr;
+    uint32_t count;
+    WearLevelCounter_t wlc; // Counter goes last so user code doesn't have to initialize it
+};
     
 struct BlockHeader_t {
     uint16_t blockSizeBytes;    // How many bytes per chunk NOT including the header
@@ -81,6 +95,7 @@ class WL_EEPROM
   public:
     WL_EEPROM(const uint32_t memSizeBytes, const uint16_t dataBlockBytes = 256, const uint16_t pageSizeBytes = 16, const uint8_t addressBytes = 2, TwoWire &i2cPort = Wire);
     // === Whole chip functions === //
+
     void setInfoOutput(HardwareSerial *serialPort); // Select a serial port to print warnings. Call this before begin()
     uint8_t begin(uint8_t deviceAddress = 0b1010000, bool allowInitToOverwrite = true); // Start the i2c bus and validate the starting block header. Will overwrite invalid headers/data if allowInitToOverwrite == true or the chip is blank. 
     void setWriteProtectPin(int16_t pin = -1);
@@ -89,6 +104,7 @@ class WL_EEPROM
     void disableWriting(void) { wl.protectExistingData = true;} // Treat the chip as read only
 
     // === Get info about settings and status === //
+
     bool isConnected(uint8_t i2cAddress = 255);
     bool isBusy(uint8_t i2cAddress = 255);
     uint32_t getUsableBytes();// Return the data block size. User code can read and write addresses from 0x0 to <this value - 1>
@@ -97,16 +113,31 @@ class WL_EEPROM
     uint8_t getAddressBytes();
     uint16_t getPageSizeBytes();
     constexpr uint16_t getI2CBufferSize() {return I2C_BUFFER_LENGTH_TX; }; // Return the size of the TX buffer
-    uint32_t readCounterValue(uint32_t startAddr);
-    uint32_t incrementCounter(WearLevelCounter_t &_wlc, uint32_t startAddr = 0, bool saveToEeprom = true);
-    uint32_t resetCounter(uint32_t startAddr);
     bool chipIsBlank();     // Returns true if all the bytes on the chip hold the same value (Typically 0xff)
+
+    // === Counter Functions (WLC = Wear Leveling Counter, WLCO = Wear Leveling Counter Object (really a struct)) === //
+
+    uint32_t getCounterValue(WearLevelCounter_t &wlc);
+    uint32_t getCounterValue(WearLevelCounterObject_t &wlco)              { return getCounterValue(wlco.wlc); }
+    uint8_t loadCounterValue(WearLevelCounter_t &wlc, uint32_t startAddr) { return loadCounterValue(wlc, startAddr, false);}
+    uint8_t loadCounterValue(WearLevelCounterObject_t &wlco);// Moved to .cpp 
+    void saveCounterValue(WearLevelCounter_t &wlc, uint32_t startAddr)    { saveCounterValue(wlc, startAddr, false);}
+    inline void saveCounterValue(WearLevelCounterObject_t &wlco)          { saveCounterValue(wlco.wlc, wlco.addr, false);}
+    uint32_t incrementCounter(WearLevelCounter_t &wlc, uint32_t startAddr, bool saveToEeprom = true) { return incrementCounter(wlc, startAddr, saveToEeprom, false); }
+    uint32_t incrementCounter(WearLevelCounterObject_t &wlco, bool saveToEeprom = true);
+    uint32_t resetCounter(WearLevelCounter_t &wlc, uint32_t startAddr)    { return resetCounter(wlc, startAddr, false); }
+    uint32_t resetCounter(WearLevelCounterObject_t &wlco);// Moved to .cpp
+    uint8_t setCounterValue(WearLevelCounter_t &wlc, uint32_t newCount, uint32_t addr, bool saveToEeprom = true);
+    uint8_t setCounterValue(WearLevelCounterObject_t &wlco, uint32_t newCount, bool saveToEeprom = true);
+    uint8_t loadOrInitCounter(WearLevelCounterObject_t &wlco);
+    bool countIsInvalid(WearLevelCounter_t &wlc);
+    inline bool countIsInvalid(WearLevelCounterObject_t &wlco)            { return countIsInvalid(wlco.wlc);  }
 
     // === Debugging === //
     // These functions take a Serial port as a parameter so they can be indepenent of the status of infoSerial and whether address printing is turned on
     void printMemory(HardwareSerial &s, char byteSeparator = ' ');                              // Print the data in the data block
     void printRawMemory(HardwareSerial &s, uint32_t maxAddr = 0, char byteSeparator = ' ');     // Print all the bytes on a chip, including any headers and reserve spaces
-    void printCounterStruct(HardwareSerial &s); // Debugging
+    void printCounterStruct(HardwareSerial &s, WearLevelCounterObject_t &wlco); // Debugging
     void printBlockInfo(HardwareSerial &s);  // Debugging
     void printBlockHeader(HardwareSerial &s);
     void setPrintBytesPerLine(uint16_t bytes) { this->bytesPerLine = bytes; } // Setting for printMemory and print
@@ -126,7 +157,7 @@ class WL_EEPROM
 
     #ifdef EEPROM_USE_CUSTOM_DELAY
     std::function<void(uint32_t dlTimeMs)>_delay; // Overridable delay function for async/RTOS/Multithread functionality
-    std::function<void(uint32_t dlTimeUs)>_delayMicroseconds; // Overridable delay function for async/RTOS/Multithread functionality
+    // std::function<void(uint32_t dlTimeUs)>_delayMicroseconds; // Overridable delay function for async/RTOS/Multithread functionality
     #else
     #define _delay delay  // Use normal delay if not using a custom version
     #endif
@@ -196,6 +227,12 @@ class WL_EEPROM
       }
       return t;
     }
+
+    // Private versions of the counter functions which can take raw or to-be-translated addresses
+    uint8_t loadCounterValue(WearLevelCounter_t &wlc, uint32_t startAddr, bool addressIsRaw);
+    void saveCounterValue(WearLevelCounter_t &wlc, uint32_t startAddr, bool addressIsRaw);
+    uint32_t incrementCounter(WearLevelCounter_t &wlc, uint32_t startAddr, bool saveToEeprom, bool addressIsRaw);
+    uint32_t resetCounter(WearLevelCounter_t &wlc, uint32_t startAddr, bool addressIsRaw);
 
     // === Internal instances of settings, counters, pointers, etc === //
     HardwareSerial *infoSerial = nullptr;  // Default to none (disable info printing)
