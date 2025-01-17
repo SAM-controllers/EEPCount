@@ -69,10 +69,10 @@ public:
     
     // === Counter functions === //
     uint32_t getCounterValue(EepCounter_t &wlco)              { return getCounterValue(wlco.wlc); }
-    uint8_t loadCounterValue(EepCounter_t &wlco);// Moved to .cpp 
-    inline void saveCounterValue(EepCounter_t &wlco)          { saveCounterValue(wlco.wlc, wlco.addr, false);}
+    uint8_t loadCounterValue(EepCounter_t &wlco);
+    inline void saveCounterValue(EepCounter_t &wlco);//          { saveCounterValue(wlco.wlc, wlco.addr, false);}
     uint32_t incrementCounter(EepCounter_t &wlco, bool saveToEeprom = true);
-    uint32_t resetCounter(EepCounter_t &wlco);// Moved to .cpp
+    uint32_t resetCounter(EepCounter_t &wlco);
     uint8_t setCounterValue(EepCounter_t &wlco, uint32_t newCount, bool saveToEeprom = true);
     uint8_t loadOrInitCounter(EepCounter_t &wlco);
     inline bool countIsInvalid(EepCounter_t &wlco)            { return countIsInvalid(wlco.wlc);  }
@@ -80,10 +80,10 @@ public:
 
     uint32_t getCounterValue(CounterBytes_t &wlc);
     bool countIsInvalid(CounterBytes_t &wlc);
-    uint32_t incrementCounter(CounterBytes_t &wlc, uint32_t startAddr, bool saveToEeprom = true) { return incrementCounter(wlc, startAddr, saveToEeprom, false); }
-    uint8_t loadCounterValue(CounterBytes_t &wlc, uint32_t startAddr) { return loadCounterValue(wlc, startAddr, false);}
-    void saveCounterValue(CounterBytes_t &wlc, uint32_t startAddr)    { saveCounterValue(wlc, startAddr, false);}
-    uint32_t resetCounter(CounterBytes_t &wlc, uint32_t startAddr)    { return resetCounter(wlc, startAddr, false); }
+    uint32_t incrementCounter(CounterBytes_t &wlc, uint32_t startAddr, bool saveToEeprom = true);// { return incrementCounter(wlc, startAddr, saveToEeprom, false); }
+    uint8_t loadCounterValue(CounterBytes_t &wlc, uint32_t startAddr);// { return loadCounterValue(wlc, startAddr, false);}
+    void saveCounterValue(CounterBytes_t &wlc, uint32_t startAddr);//    { saveCounterValue(wlc, startAddr, false);}
+    uint32_t resetCounter(CounterBytes_t &wlc, uint32_t startAddr);//    { return resetCounter(wlc, startAddr, false); }
     uint8_t setCounterValue(CounterBytes_t &wlc, uint32_t newCount, uint32_t addr, bool saveToEeprom = true);
 
     // === Debugging === //
@@ -95,26 +95,12 @@ public:
     template <typename T> const T &put(uint32_t idx, const T &t)        {  return memLib->put(  this->addrToHwAddr(idx), t);  }  
     template <typename T> const T &putChanged(uint32_t idx, const T &t) {  return memLib->put(  this->addrToHwAddr(idx), t);  }           // ToDo: manually only update changed bytes
 
-
-#ifdef EEPROM_USE_CUSTOM_DELAY
-    std::function<void(uint32_t dlTimeMs)>_delay; // Overridable delay function for async/RTOS/Multithread functionality
-    std::function<void(uint32_t dlTimeUs)>_delayMicroseconds; // Overridable delay function for async/RTOS/Multithread functionality
-#else
-#define _delay delay  // Use normal delay if not using a custom version
-#endif
-
-
 private:
     EEPROMClass *memLib = nullptr;  // This is a placeholder for any eeprom lib with "get" and "put"
 
     void zeroCounterStruct(CounterBytes_t &wlc);
     void printWarning(uint8_t errNum);
 
-    // Private versions of the counter functions which can take raw or to-be-translated addresses
-    uint8_t loadCounterValue(CounterBytes_t &wlc, uint32_t startAddr, bool addressIsRaw);
-    void saveCounterValue(CounterBytes_t &wlc, uint32_t startAddr, bool addressIsRaw);
-    uint32_t incrementCounter(CounterBytes_t &wlc, uint32_t startAddr, bool saveToEeprom, bool addressIsRaw);
-    uint32_t resetCounter(CounterBytes_t &wlc, uint32_t startAddr, bool addressIsRaw);
     
 
     // === Internal instances of settings, counters, pointers, etc === //

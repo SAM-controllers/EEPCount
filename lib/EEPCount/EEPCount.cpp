@@ -38,13 +38,10 @@ enum EepWarn_t : uint8_t{
 #define EEP_NO_SAVE_TO_EEPROM  false    // Update values in ram only without saving to eeprom chip
 
 
-/// @brief 
+/// @brief Declare what the EEPCount library should use for accessing the eeprom. Must include a get(addr, dest) and put(addr, datatoput) function
+/// (EEPROMClass is a placeholder)
 EEPCount::EEPCount(EEPROMClass &mem){
     memLib = &mem;
-    #ifdef EEPROM_USE_CUSTOM_DELAY
-    _delay = delay; // Default to the normal delay function until overridden
-    _delayMicroseconds = delayMicroseconds; // Default to the normal delay function until overridden
-    #endif
 }
 
 /// @brief 
@@ -149,11 +146,11 @@ uint8_t EEPCount::loadCounterValue(CounterBytes_t &wlc, uint32_t startAddr){
     return countIsInvalid(wlc); // Return the result of a validity check
 }
 
-/// @brief Load the data from a counter struct from EEPROM into memory, then set the count in wlco.currentCount
+/// @brief Load the data from a counter struct from EEPROM into memory, then set the count
 /// @param wlco 
-/// @return 0 = EXIT_SUCCESS with valid data. 1 = Loaded data is invalid. 2+ = other error
+/// @return 0 = EXIT_SUCCESS with valid data. 1 = Loaded data is invalid. 2+ = other error (see enum CounterReturn_t)
 uint8_t EEPCount::loadCounterValue(EepCounter_t &wlco) { 
-    uint8_t loadReturnCode = loadCounterValue(wlco.wlc, wlco.addr, false); 
+    uint8_t loadReturnCode = loadCounterValue(wlco.wlc, wlco.addr); 
     if(loadReturnCode == EXIT_SUCCESS){
         wlco.count = getCounterValue(wlco.wlc);
     }
@@ -170,9 +167,8 @@ void EEPCount::saveCounterValue(CounterBytes_t &wlc, uint32_t startAddr){
 /// 0 = Already existing valid counter loaded (EXIT_SUCCESS). 
 /// 1 = Loaded data that was not a counter, successfully initialized count to 0. 
 /// 2 = All bytes were 0xff (255) which is technically valid, but almost certainly uninitialized. Initialized count to 0. 
-/// @todo Address valid/in range, raw address option
+/// @todo Address valid/in range check
 uint8_t EEPCount::loadOrInitCounter(EepCounter_t &wlco){
-    // ToDo: Optional bool addressIsRaw
 
     uint8_t loadReturnCode = this->loadCounterValue(wlco);
 
@@ -192,11 +188,11 @@ uint8_t EEPCount::loadOrInitCounter(EepCounter_t &wlco){
 /// @brief Add one to the counter count
 /// @param wlco Wear leveling count object
 /// @param saveToEeprom Normally true. If false, update in ram only, useful for when lots of increments happen or in time critical code.
-/// @note If saveToEeprom is false, power loss or calling readCounterValue() will cause the count to reset to the last saved value.
+/// @note If saveToEeprom is false, power loss or calling readCounterValue() will cause the count to reset to the last saved value on next load.
 /// @return new counter count
 uint32_t EEPCount::incrementCounter(EepCounter_t &wlco, bool saveToEeprom){
     wlco.count++;
-    return incrementCounter(wlco.wlc, wlco.addr, saveToEeprom, false); 
+    return incrementCounter(wlco.wlc, wlco.addr, saveToEeprom); 
 }
 
 /// @brief Add one to the counter count
@@ -211,7 +207,7 @@ uint32_t EEPCount::incrementCounter(CounterBytes_t &countStruct, uint32_t startA
     
     // === Singles count (Abacus0) === //
     if(countStruct.abacus0 > 0){
-        countStruct.abacus0 /= 2;  // Set the leftmost 1 bit to 0 (normal decrement)
+        countStruct.abacus0 /= 2;  // Set the leftmost 1 bit to 0 (normal increment)
     }
     else {
         countStruct.abacus0 = 0xffffffff;  // Reset count and set carry
@@ -221,7 +217,7 @@ uint32_t EEPCount::incrementCounter(CounterBytes_t &countStruct, uint32_t startA
     // === Abacus 1 === //
     if(carryFlag){
         carryFlag = false;
-        if(countStruct.abacus1 > 0) {   // Normal decrement
+        if(countStruct.abacus1 > 0) {   // Normal increment
             countStruct.abacus1 /= 2;
         }
         else {                  // Handle rollover
@@ -254,7 +250,7 @@ uint32_t EEPCount::incrementCounter(CounterBytes_t &countStruct, uint32_t startA
         }
     }
 
-    // === Fours === //
+    // === Uint2 === //
     // Note: it should not be physically possible to roll over the uint2 place before the abacus0 cells wear out
     // They would have had to count over 6 billion increments for this to roll over
     if(carryFlag){
@@ -317,7 +313,7 @@ uint8_t EEPCount::setCounterValue(EepCounter_t &wlco, uint32_t newCount, bool sa
     return setCounterValue(wlco.wlc, newCount, wlco.addr, saveToEeprom);
 }
 
-// Initialize a struct in memory (NOT ON THE EEPROM CHIP) to a count of 0
+/// @brief Initialize a struct in memory (NOT ON THE EEPROM CHIP) to a count of 0
 void EEPCount::zeroCounterStruct(CounterBytes_t &wlc){
     wlc = {.abacus0 = 0xffffffff, .abacus1 = 0xff, .uint0 = 0, .uint1 = 0, .uint2 = 0};
 }
