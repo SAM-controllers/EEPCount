@@ -599,7 +599,7 @@ int WL_EEPROM::_rawwrite(uint32_t eepromLocation, const uint8_t *dataToWrite, ui
 /// @brief Calculate the current counter value of a wlc already in memory
 /// @param wlc Reference to the counter struct
 /// @return The current count
-uint32_t WL_EEPROM::getCounterValue(WearLevelCounter_t &wlc){
+uint32_t WL_EEPROM::getCounterValue(CounterBytes_t &wlc){
     bool errorFound = false;
     uint32_t counterValue = 0;
     
@@ -641,7 +641,7 @@ uint32_t WL_EEPROM::getCounterValue(WearLevelCounter_t &wlc){
 /// @return 0: Likely valid, >=1: Definitely not valid
 /// @note There is a chance of false negatives, meaning it's possible to have uninitialized memory test valid.
 /// An invalid test, however, is definitely invalid and should be initialized.
-bool WL_EEPROM::countIsInvalid(WearLevelCounter_t &wlc){
+bool WL_EEPROM::countIsInvalid(CounterBytes_t &wlc){
     bool returnValue = EXIT_SUCCESS;    // Initialize return to valid
 
     // Check the 1's in the abacus bytes
@@ -679,7 +679,7 @@ bool WL_EEPROM::countIsInvalid(WearLevelCounter_t &wlc){
 /// @param startAddr 
 /// @param addressIsRaw 
 /// @return 0 = EXIT_SUCCESS with valid data. 1 = Loaded data is invalid. 2+ = other error
-uint8_t WL_EEPROM::loadCounterValue(WearLevelCounter_t &wlc, uint32_t startAddr, bool addressIsRaw){
+uint8_t WL_EEPROM::loadCounterValue(CounterBytes_t &wlc, uint32_t startAddr, bool addressIsRaw){
     if(addressIsRaw == false) { startAddr = this->addrToHwAddr(startAddr); }
     this->_rawget(startAddr, wlc);
     return countIsInvalid(wlc); // Return the result of a validity check
@@ -688,7 +688,7 @@ uint8_t WL_EEPROM::loadCounterValue(WearLevelCounter_t &wlc, uint32_t startAddr,
 /// @brief Load the data from a counter struct from EEPROM into memory, then set the count in wlco.currentCount
 /// @param wlco 
 /// @return 0 = EXIT_SUCCESS with valid data. 1 = Loaded data is invalid. 2+ = other error
-uint8_t WL_EEPROM::loadCounterValue(WearLevelCounterObject_t &wlco) { 
+uint8_t WL_EEPROM::loadCounterValue(EepCounter_t &wlco) { 
     uint8_t loadReturnCode = loadCounterValue(wlco.wlc, wlco.addr, false); 
     if(loadReturnCode == EXIT_SUCCESS){
         wlco.count = getCounterValue(wlco.wlc);
@@ -696,7 +696,7 @@ uint8_t WL_EEPROM::loadCounterValue(WearLevelCounterObject_t &wlco) {
     return loadReturnCode;
 }
 
-void WL_EEPROM::saveCounterValue(WearLevelCounter_t &wlc, uint32_t startAddr, bool addressIsRaw){
+void WL_EEPROM::saveCounterValue(CounterBytes_t &wlc, uint32_t startAddr, bool addressIsRaw){
     if(addressIsRaw == false) { startAddr = this->addrToHwAddr(startAddr); }
     this->_rawputChanged(startAddr, wlc);
 }
@@ -708,7 +708,7 @@ void WL_EEPROM::saveCounterValue(WearLevelCounter_t &wlc, uint32_t startAddr, bo
 /// 1 = Loaded data that was not a counter, successfully initialized count to 0. 
 /// 2 = All bytes were 0xff (255) which is technically valid, but almost certainly uninitialized. Initialized count to 0. 
 /// @todo Address valid/in range, raw address option
-uint8_t WL_EEPROM::loadOrInitCounter(WearLevelCounterObject_t &wlco){
+uint8_t WL_EEPROM::loadOrInitCounter(EepCounter_t &wlco){
     // ToDo: Optional bool addressIsRaw
 
     uint8_t loadReturnCode = this->loadCounterValue(wlco);
@@ -731,7 +731,7 @@ uint8_t WL_EEPROM::loadOrInitCounter(WearLevelCounterObject_t &wlco){
 /// @param saveToEeprom Normally true. If false, update in ram only, useful for when lots of increments happen or in time critical code.
 /// @note If saveToEeprom is false, power loss or calling readCounterValue() will cause the count to reset to the last saved value.
 /// @return new counter count
-uint32_t WL_EEPROM::incrementCounter(WearLevelCounterObject_t &wlco, bool saveToEeprom){
+uint32_t WL_EEPROM::incrementCounter(EepCounter_t &wlco, bool saveToEeprom){
     wlco.count++;
     return incrementCounter(wlco.wlc, wlco.addr, saveToEeprom, false); 
 }
@@ -741,7 +741,7 @@ uint32_t WL_EEPROM::incrementCounter(WearLevelCounterObject_t &wlco, bool saveTo
 /// @param saveToEeprom Normally true. If false, update in ram only, useful for when lots of increments happen or in time critical code.
 /// @note If saveToEeprom is false, power loss or calling readCounterValue() will cause the count to reset to the last saved value.
 /// @return new counter count
-uint32_t WL_EEPROM::incrementCounter(WearLevelCounter_t &countStruct, uint32_t startAddr, bool saveToEeprom, bool addressIsRaw){
+uint32_t WL_EEPROM::incrementCounter(CounterBytes_t &countStruct, uint32_t startAddr, bool saveToEeprom, bool addressIsRaw){
     if(addressIsRaw == false) { startAddr = this->addrToHwAddr(startAddr); }
     // ToDo: Check status and load the current count if it hasn't already been loaded
     
@@ -806,7 +806,7 @@ uint32_t WL_EEPROM::incrementCounter(WearLevelCounter_t &countStruct, uint32_t s
 }
 
 // Reset a counter to 0 or initialize a previously unused part of memory
-uint32_t WL_EEPROM::resetCounter(WearLevelCounter_t &wlc, uint32_t startAddr, bool addressIsRaw){
+uint32_t WL_EEPROM::resetCounter(CounterBytes_t &wlc, uint32_t startAddr, bool addressIsRaw){
     if(addressIsRaw == false) { startAddr = this->addrToHwAddr(startAddr); }
     // if(infoSerial != nullptr){
     //     infoSerial->print("<Resetting counter>");
@@ -816,7 +816,7 @@ uint32_t WL_EEPROM::resetCounter(WearLevelCounter_t &wlc, uint32_t startAddr, bo
     return 0;
 }
 
-uint32_t WL_EEPROM::resetCounter(WearLevelCounterObject_t &wlco){
+uint32_t WL_EEPROM::resetCounter(EepCounter_t &wlco){
     resetCounter(wlco.wlc, wlco.addr);
     wlco.count = 0;
     return 0;
@@ -828,7 +828,7 @@ uint32_t WL_EEPROM::resetCounter(WearLevelCounterObject_t &wlco){
 /// @param addr Where to save the updated count data (if saveToEeprom == true, unused if false)
 /// @param saveToEeprom false = Only update in ram, do not write to chip. true = save new value to chip.
 /// @return 0 = success
-uint8_t WL_EEPROM::setCounterValue(WearLevelCounter_t &wlc, uint32_t newCount, uint32_t addr, bool saveToEeprom){
+uint8_t WL_EEPROM::setCounterValue(CounterBytes_t &wlc, uint32_t newCount, uint32_t addr, bool saveToEeprom){
     zeroCounterStruct(wlc);
 
     // Note: this section assumes one rollover of abacus1 = 256 counts:
@@ -851,20 +851,20 @@ uint8_t WL_EEPROM::setCounterValue(WearLevelCounter_t &wlc, uint32_t newCount, u
 /// @param newCount What to update to
 /// @param saveToEeprom false = Only update in ram, do not write to chip. true = save new value to chip.
 /// @return 0 = success
-uint8_t WL_EEPROM::setCounterValue(WearLevelCounterObject_t &wlco, uint32_t newCount, bool saveToEeprom){
+uint8_t WL_EEPROM::setCounterValue(EepCounter_t &wlco, uint32_t newCount, bool saveToEeprom){
     wlco.count = newCount;
     return setCounterValue(wlco.wlc, newCount, wlco.addr, saveToEeprom);
 }
 
 // Initialize a struct in memory (NOT ON THE EEPROM CHIP) to a count of 0
-void WL_EEPROM::zeroCounterStruct(WearLevelCounter_t &wlc){
+void WL_EEPROM::zeroCounterStruct(CounterBytes_t &wlc){
     wlc = {.abacus0 = 0xffffffff, .abacus1 = 0xff, .uint0 = 0, .uint1 = 0, .uint2 = 0};
 }
 
 /// @brief Print the data in memory for a counter object. If you want to be sure it's what's on the chip, call saveCounterValue() and loadCounterValue() before printing
 /// @param s Output serial port
 /// @param wlco The object to print
-void WL_EEPROM::printCounterStruct(HardwareSerial &s, WearLevelCounterObject_t &wlco){
+void WL_EEPROM::printCounterStruct(HardwareSerial &s, EepCounter_t &wlco){
     // s.printf("Counter struct: Value = %u\t a0|a1-u0|u1|u2: %x|%x-%u|%u|%u\n", counterCount, _wlc.abacus0, _wlc.abacus1, _wlc.uint0, _wlc.uint1, _wlc.uint2);
     s.print("\r\nCounter Count: 0x");
     s.print(wlco.count, HEX);

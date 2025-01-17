@@ -66,7 +66,7 @@ struct struct_memorySettings
 };
 
 // The raw counter bytes that get saved to eeprom
-struct WearLevelCounter_t{
+struct CounterBytes_t{
     uint32_t abacus0; // Single increments
     uint8_t abacus1;  // Number of abacus0 rollovers
     uint8_t uint0;     // Number of abacus1 rollovers
@@ -75,10 +75,10 @@ struct WearLevelCounter_t{
 } ;
 
 // This needs a better name, but includes the raw data plus associated info for ease of use
-struct WearLevelCounterObject_t{
+struct EepCounter_t{
     uint32_t addr;
     uint32_t count;
-    WearLevelCounter_t wlc; // Counter goes last so user code doesn't have to initialize it
+    CounterBytes_t wlc; // Counter goes last so user code doesn't have to initialize it
 };
     
 struct BlockHeader_t {
@@ -86,7 +86,7 @@ struct BlockHeader_t {
     uint8_t currentBlock;
     BlockStatus_t blockStatus;
     uint8_t reserved[4];        // For now, keep the block header at 16 bytes manually (8 header, 8 wlc)
-    WearLevelCounter_t blockWLC;
+    CounterBytes_t blockWLC;
 };
 // const int commentMeOut = sizeof(BlockHeader_t);  // For conveniently checking sizeof
 
@@ -117,27 +117,27 @@ class WL_EEPROM
 
     // === Counter Functions (WLC = Wear Leveling Counter, WLCO = Wear Leveling Counter Object (really a struct)) === //
 
-    uint32_t getCounterValue(WearLevelCounter_t &wlc);
-    uint32_t getCounterValue(WearLevelCounterObject_t &wlco)              { return getCounterValue(wlco.wlc); }
-    uint8_t loadCounterValue(WearLevelCounter_t &wlc, uint32_t startAddr) { return loadCounterValue(wlc, startAddr, false);}
-    uint8_t loadCounterValue(WearLevelCounterObject_t &wlco);// Moved to .cpp 
-    void saveCounterValue(WearLevelCounter_t &wlc, uint32_t startAddr)    { saveCounterValue(wlc, startAddr, false);}
-    inline void saveCounterValue(WearLevelCounterObject_t &wlco)          { saveCounterValue(wlco.wlc, wlco.addr, false);}
-    uint32_t incrementCounter(WearLevelCounter_t &wlc, uint32_t startAddr, bool saveToEeprom = true) { return incrementCounter(wlc, startAddr, saveToEeprom, false); }
-    uint32_t incrementCounter(WearLevelCounterObject_t &wlco, bool saveToEeprom = true);
-    uint32_t resetCounter(WearLevelCounter_t &wlc, uint32_t startAddr)    { return resetCounter(wlc, startAddr, false); }
-    uint32_t resetCounter(WearLevelCounterObject_t &wlco);// Moved to .cpp
-    uint8_t setCounterValue(WearLevelCounter_t &wlc, uint32_t newCount, uint32_t addr, bool saveToEeprom = true);
-    uint8_t setCounterValue(WearLevelCounterObject_t &wlco, uint32_t newCount, bool saveToEeprom = true);
-    uint8_t loadOrInitCounter(WearLevelCounterObject_t &wlco);
-    bool countIsInvalid(WearLevelCounter_t &wlc);
-    inline bool countIsInvalid(WearLevelCounterObject_t &wlco)            { return countIsInvalid(wlco.wlc);  }
+    uint32_t getCounterValue(CounterBytes_t &wlc);
+    uint32_t getCounterValue(EepCounter_t &wlco)              { return getCounterValue(wlco.wlc); }
+    uint8_t loadCounterValue(CounterBytes_t &wlc, uint32_t startAddr) { return loadCounterValue(wlc, startAddr, false);}
+    uint8_t loadCounterValue(EepCounter_t &wlco);// Moved to .cpp 
+    void saveCounterValue(CounterBytes_t &wlc, uint32_t startAddr)    { saveCounterValue(wlc, startAddr, false);}
+    inline void saveCounterValue(EepCounter_t &wlco)          { saveCounterValue(wlco.wlc, wlco.addr, false);}
+    uint32_t incrementCounter(CounterBytes_t &wlc, uint32_t startAddr, bool saveToEeprom = true) { return incrementCounter(wlc, startAddr, saveToEeprom, false); }
+    uint32_t incrementCounter(EepCounter_t &wlco, bool saveToEeprom = true);
+    uint32_t resetCounter(CounterBytes_t &wlc, uint32_t startAddr)    { return resetCounter(wlc, startAddr, false); }
+    uint32_t resetCounter(EepCounter_t &wlco);// Moved to .cpp
+    uint8_t setCounterValue(CounterBytes_t &wlc, uint32_t newCount, uint32_t addr, bool saveToEeprom = true);
+    uint8_t setCounterValue(EepCounter_t &wlco, uint32_t newCount, bool saveToEeprom = true);
+    uint8_t loadOrInitCounter(EepCounter_t &wlco);
+    bool countIsInvalid(CounterBytes_t &wlc);
+    inline bool countIsInvalid(EepCounter_t &wlco)            { return countIsInvalid(wlco.wlc);  }
 
     // === Debugging === //
     // These functions take a Serial port as a parameter so they can be indepenent of the status of infoSerial and whether address printing is turned on
     void printMemory(HardwareSerial &s, char byteSeparator = ' ');                              // Print the data in the data block
     void printRawMemory(HardwareSerial &s, uint32_t maxAddr = 0, char byteSeparator = ' ');     // Print all the bytes on a chip, including any headers and reserve spaces
-    void printCounterStruct(HardwareSerial &s, WearLevelCounterObject_t &wlco); // Debugging
+    void printCounterStruct(HardwareSerial &s, EepCounter_t &wlco); // Debugging
     void printBlockInfo(HardwareSerial &s);  // Debugging
     void printBlockHeader(HardwareSerial &s);
     void setPrintBytesPerLine(uint16_t bytes) { this->bytesPerLine = bytes; } // Setting for printMemory and print
@@ -197,7 +197,7 @@ class WL_EEPROM
     int _rawread(uint32_t eepromLocation, uint8_t *buff, uint16_t bufferSize);
     // int _rawwrite(uint32_t eepromLocation, uint8_t dataToWrite); // Single byte writes use a uint8_t[1] buffer to avoid code duplication
     int _rawwrite(uint32_t eepromLocation, const uint8_t *dataToWrite, uint16_t blockSize);
-    void zeroCounterStruct(WearLevelCounter_t &wlc);
+    void zeroCounterStruct(CounterBytes_t &wlc);
     uint32_t addrToHwAddr(uint32_t addr);
 
     // Functionality to 'get' and 'put' objects to and from EEPROM.
@@ -229,10 +229,10 @@ class WL_EEPROM
     }
 
     // Private versions of the counter functions which can take raw or to-be-translated addresses
-    uint8_t loadCounterValue(WearLevelCounter_t &wlc, uint32_t startAddr, bool addressIsRaw);
-    void saveCounterValue(WearLevelCounter_t &wlc, uint32_t startAddr, bool addressIsRaw);
-    uint32_t incrementCounter(WearLevelCounter_t &wlc, uint32_t startAddr, bool saveToEeprom, bool addressIsRaw);
-    uint32_t resetCounter(WearLevelCounter_t &wlc, uint32_t startAddr, bool addressIsRaw);
+    uint8_t loadCounterValue(CounterBytes_t &wlc, uint32_t startAddr, bool addressIsRaw);
+    void saveCounterValue(CounterBytes_t &wlc, uint32_t startAddr, bool addressIsRaw);
+    uint32_t incrementCounter(CounterBytes_t &wlc, uint32_t startAddr, bool saveToEeprom, bool addressIsRaw);
+    uint32_t resetCounter(CounterBytes_t &wlc, uint32_t startAddr, bool addressIsRaw);
 
     // === Internal instances of settings, counters, pointers, etc === //
     HardwareSerial *infoSerial = nullptr;  // Default to none (disable info printing)
@@ -264,7 +264,7 @@ class WL_EEPROM
     } wl;
     // uint32_t keepMeCommentedOut = sizeof(AddrTranslation_t);
     
-    WearLevelCounter_t _wlc; // "_wlc" stands for "Internal wear leveling counter struct" and contains the in-memory version of the current block's counter
+    CounterBytes_t _wlc; // "_wlc" stands for "Internal wear leveling counter struct" and contains the in-memory version of the current block's counter
 };
 
 #endif //_WEARLEVELING_H
